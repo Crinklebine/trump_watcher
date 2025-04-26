@@ -1,5 +1,8 @@
 # TrumpWatcher
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Build Status](https://github.com/Crinklebine/trump_watcher/actions/workflows/windows-build.yml/badge.svg)](https://github.com/Crinklebine/trump_watcher/actions)
+
 **TrumpWatcher** is a Windows system tray application that monitors [Truth Social](https://truthsocial.com/) for Donald Trump's latest posts and sends desktop notifications.
 
 It is designed to be a fully self-contained app, bundling its own headless browser internally for reliability.  
