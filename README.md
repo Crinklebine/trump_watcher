@@ -1,8 +1,11 @@
 # TrumpWatcher
 
-**TrumpWatcher** is a lightweight Windows system tray app that monitors [Truth Social](https://truthsocial.com/) for Donald Trump's latest posts and sends desktop notifications.
+**TrumpWatcher** is a Windows system tray application that monitors [Truth Social](https://truthsocial.com/) for Donald Trump's latest posts and sends desktop notifications.
 
-This application is open-source and designed for personal use, but you are welcome to use or modify it under the MIT License.
+It is designed to be a fully self-contained app, bundling its own headless browser internally for reliability.  
+No external browsers or configuration are required.
+
+This application is open-source and released under the MIT License.
 
 ---
 
@@ -11,9 +14,8 @@ This application is open-source and designed for personal use, but you are welco
 - Monitors Trump's official Truth Social posts
 - Sends native Windows desktop notifications
 - Runs quietly in the system tray
-- Efficient and minimal
-- Auto-hashes posts to avoid duplicate alerts
-- Requires no manual browser setup (bundled headless Chromium)
+- Auto-detects new posts without manual refresh
+- Fully self-contained (headless browser included)
 
 ---
 
@@ -39,7 +41,7 @@ This is normal for new open-source projects. TrumpWatcher is open-source and you
 3. TrumpWatcher will appear in your system tray (near the clock).
 4. Right-click the tray icon for options like Open Truth Social, About, or Exit.
 
-✅ That's it! No complicated installation required.
+✅ No installation process — just run the EXE.
 
 ---
 
@@ -60,7 +62,7 @@ If you want to build it yourself:
 - Run locally: `python main.py`
 - Or build a Windows EXE using: `python build_app.py`
 
-GitHub Actions are set up to automatically build production-ready EXEs for Windows.
+GitHub Actions are configured to automatically build production EXEs.
 
 ---
 
@@ -71,3 +73,4 @@ GitHub Actions are set up to automatically build production-ready EXEs for Windo
 - [Winotify](https://github.com/kaustubhgupta/winotify) — for Windows notifications
 
 ---
+
