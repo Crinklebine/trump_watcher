@@ -1,0 +1,6 @@
+playwright
+pyinstaller
+winotify
+plyer
+pystray
+pillow

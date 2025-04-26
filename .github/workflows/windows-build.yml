@@ -1,0 +1,49 @@
+name: Build TrumpWatcher EXE
+
+# Allow manual triggering of the workflow
+on:
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest  # Use the latest Windows runner
+
+    steps:
+      # Step 1: Check out your code from GitHub
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Set up Python environment
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'  # Match your local development Python version
+
+      # Step 3: Install all required Python libraries
+      - name: Install dependencies
+        run: |
+            python -m pip install --upgrade pip
+            pip install -r requirements.txt
+
+      # Step 4: Install Playwright browser (Chromium headless shell)
+      - name: Install Playwright Browsers
+        run: |
+          python -m playwright install chromium-headless-shell
+
+      # Step 5: Run your custom build script to create the EXE with production
+      - name: Build TrumpWatcher EXE
+        run: |
+          python build_app.py --prod
+
+      # Step 6: Set VERSION environment valriable
+      - name: Set VERSION environment variable
+        run: |
+          $version = Get-Content VERSION
+          echo "VERSION=$version" >> $env:GITHUB_ENV
+
+      # Step 7: Upload the built EXE as an artifact
+      - name: Upload TrumpWatcher Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: TrumpWatcher-${{ env.VERSION }}
+          path: dist/TrumpWatcher.exe

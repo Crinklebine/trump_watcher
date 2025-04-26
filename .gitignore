@@ -1,0 +1,33 @@
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Playwright browser storage
+.playwright/
+
+# Build artifacts
+build/
+dist/
+*.spec
+
+# Logs
+posts_log.txt
+
+# System files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Virtual environments
+env/
+venv/
+
+# IDE/Editor config
+.vscode/
+*.code-workspace
+.idea/
+*.sublime-project
+*.sublime-workspace
+
