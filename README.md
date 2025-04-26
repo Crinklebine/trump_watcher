@@ -19,6 +19,7 @@ This application is open-source and released under the MIT License.
 - Runs quietly in the system tray
 - Auto-detects new posts without manual refresh
 - Fully self-contained (headless browser included)
+- Right mouse click menu
 
 ---
 
