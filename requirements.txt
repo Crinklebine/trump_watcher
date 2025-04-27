@@ -1,7 +1,5 @@
+pillow
 playwright
 pyinstaller
-winotify
-plyer
-pystray
-pillow
 pywin32
+winotify
