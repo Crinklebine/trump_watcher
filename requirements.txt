@@ -4,3 +4,4 @@ winotify
 plyer
 pystray
 pillow
+pywin32
