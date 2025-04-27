@@ -67,6 +67,7 @@ def build_exe(pw_root: str) -> int:
         "--hidden-import", "pythoncom",
         "--hidden-import", "win32com.shell",
         "--hidden-import", "win32com.propsys",
+        "--hidden-import", "win32com.propsys.pscon",
         "--add-data", f"{pw_root}{os.pathsep}ms-playwright/chromium_headless_shell/chrome-win",
         "--version-file", "version_info.txt",
         "--add-data=VERSION;.",

@@ -116,8 +116,9 @@ def ensure_aumid_shortcut() -> None:
         import pythoncom  # type: ignore[import]
         from win32com.shell import shell  # type: ignore[import]
         from win32com.propsys import propsys, pscon  # type: ignore[import]
-    except ImportError:
-        # pywin32 not installed; skip shortcut creation
+    except ImportError as e:
+        # Problems importing pywin32 COM APIs; skip shortcut creation
+        print(f"[DEBUG] ensure_aumid_shortcut skipped: {e!r}")
         return
 
     # Determine the Programs folder under the current user's Start Menu
