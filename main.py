@@ -6,6 +6,7 @@
 # ----------------------------
 import os
 import sys
+import platform
 import time
 import threading
 import ctypes
@@ -49,18 +50,10 @@ exit_flag = False               # Signals the background monitor loop (and tray 
 #about_icon_initialized = False  # Guard so we only load & set the About-box icon once per session
 
 # ----------------------------
-# Debug detection
+# Debug flag setting
 # ----------------------------
 
-# Determine if running as EXE (PyInstaller "frozen" mode)
-FROZEN = getattr(sys, 'frozen', False)
-# If running from EXE and "--debug" is NOT passed → production mode
-# Otherwise (Python script or EXE with --debug) → debug mode
-if FROZEN:
-    DEBUG_MODE = "--debug" in sys.argv
-else:
-    DEBUG_MODE = "--prod" not in sys.argv
-print(f"[INFO] Running in {'debug' if DEBUG_MODE else 'production'} mode.")
+DEBUG_MODE = "--debug" in sys.argv
 
 # ----------------------------
 # Utility functions
@@ -74,6 +67,35 @@ def resource_path(relative_path: str) -> str:
     return os.path.join(base_path, relative_path)
 
 HEADLESS_PATH = resource_path("ms-playwright/chromium_headless_shell/chrome-win/headless_shell.exe")
+
+# Frozen detection and info
+def get_frozen_info():
+    print("=== FROZEN MODE INFO ===")
+    print(f"  frozen flag.........: {getattr(sys, 'frozen', False)}")
+    print(f"  executable path.....: {sys.executable!r}")
+    # PyInstaller unpacks into a temp dir and points you at it
+    print(f"  _MEIPASS dir........: {getattr(sys, '_MEIPASS', None)!r}")
+    # original script path (won’t exist in exe)
+    print(f"  __file__............: {__file__!r}")
+    # argv[0] is the exe name
+    print(f"  argv[0].............: {sys.argv[0]!r}")
+    # host python platform
+    print(f"  platform............: {platform.system()} {platform.release()}")
+    print(f"  machine arch........: {platform.machine()}")
+    # if you embed a VERSION file you can read it here
+    ver_file = Path(getattr(sys, '_MEIPASS', os.getcwd())) / "VERSION"
+    print(f"  bundle VERSION file.: {ver_file if ver_file.exists() else '<not found>'}")
+    if ver_file.exists():
+        print("    ->", ver_file.read_text().strip())
+    print("========================")
+
+# Determine if running as EXE (PyInstaller "frozen" mode)
+FROZEN = getattr(sys, 'frozen', False)
+if FROZEN:
+    try:
+        get_frozen_info()
+    except Exception as e:
+        print(f"[DEBUG] Failed to get frozen info: {e}")
 
 def get_version():
     """Read the VERSION file and return the app version."""
