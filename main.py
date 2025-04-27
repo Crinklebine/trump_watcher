@@ -418,8 +418,16 @@ def create_icon() -> None:
             y = (win.winfo_screenheight() - h) // 2
             win.geometry(f"{w}x{h}+{x}+{y}")
 
-            # About text with dynamic version
-            about_text = f"TrumpWatcher v{get_version()}\n\nMonitors TruthSocial for @realDonaldTrump posts.\nBuilt with Python + Playwright"
+            # About text
+            about_text = (
+                f"TrumpWatcher v{get_version()}\n\n"
+                "Monitors TruthSocial for @realDonaldTrump posts.\n"
+                "Displays desktop notifications on new posts.\n\n"
+                "Built with:\n"
+                "Python, Playwright, Pystray, Pillow, Tkinter 🙏\n\n"
+                "© 2025 Crinklebine\n\n"
+            )
+
             tk.Label(
                 win,
                 text=about_text,
