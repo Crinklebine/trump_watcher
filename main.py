@@ -18,7 +18,6 @@ from pathlib import Path
 # Third-party imports
 # ----------------------------
 from playwright.sync_api import sync_playwright
-from plyer import notification
 import pystray
 from PIL import Image, ImageDraw
 from winotify import Notification, audio
@@ -282,19 +281,11 @@ def notify(post_text: str, normalized_text: str, label: str = "New Trump post") 
         # Show it
         toast.show()
 
-    except ImportError:
-        # Fallback to plyer if winotify isn't installed
-        notification.notify(
-            title=label,
-            message=normalized_text[:200],
-            timeout=12
-        )
-
     except Exception as e:
         # Catch-all so we never crash on notification errors
         print(f"[{datetime.now()}] Notification error: {e}")
 
-    # Always append full details to log in DEBUG mode
+    # Always append full details to posts log in DEBUG mode
     if DEBUG_MODE:
         with open("posts_log.txt", "a", encoding="utf-8") as log:
             log.write(f"\n[{datetime.now()}] [{label}]\n")
