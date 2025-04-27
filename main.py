@@ -8,11 +8,11 @@ import os
 import sys
 import time
 import threading
-import os.path as path
 import ctypes
 import re
 import hashlib
 from datetime import datetime
+from pathlib import Path
 
 # ----------------------------
 # Third-party imports
@@ -71,6 +71,18 @@ def resource_path(relative_path: str) -> str:
     return os.path.join(base_path, relative_path)
 
 HEADLESS_PATH = resource_path("ms-playwright/chromium_headless_shell/chrome-win/headless_shell.exe")
+
+def get_version():
+    """Read the VERSION file and return the app version."""
+    try:
+        version_file = Path(resource_path("VERSION"))
+        if version_file.exists():
+            return version_file.read_text(encoding="utf-8").strip()
+        else:
+            return "Unknown"
+    except Exception as e:
+        print(f"[DEBUG] Failed to load version: {e}")
+        return "Unknown"
 
 def ensure_aumid_shortcut() -> None:
     # Create or recreate the Start-Menu shortcut so Windows uses our AUMID and icon
@@ -382,27 +394,39 @@ def create_icon() -> None:
         icon.stop()
 
     def on_about(icon, item):
-        # Show an About dialog using Tkinter
+        """Show an About dialog using Tkinter in a separate thread."""
         def show():
+            import tkinter as tk
             root = tk.Tk()
             root.withdraw()
+
+            # Create About window
             win = tk.Toplevel(root)
-            win.title("About Trump Watcher")
+            win.title("About TrumpWatcher")
             win.resizable(False, False)
-            w, h = 320, 160
+
+            # Center the window on the screen
+            w, h = 360, 180
             x = (win.winfo_screenwidth() - w) // 2
             y = (win.winfo_screenheight() - h) // 2
             win.geometry(f"{w}x{h}+{x}+{y}")
+
+            # About text with dynamic version
+            about_text = f"TrumpWatcher v{get_version()}\n\nMonitors TruthSocial for @realDonaldTrump posts.\nBuilt with Python + Playwright"
             tk.Label(
                 win,
-                text="Trump Watcher\n\nMonitors TruthSocial for @realDonaldTrump posts\n"
-                     "Built with Python + Playwright",
+                text=about_text,
                 justify="center",
                 padx=20,
                 pady=10
             ).pack()
+
+            # Close button
             tk.Button(win, text="Close", command=win.destroy).pack(pady=10)
+
             root.mainloop()
+
+        # Launch the About window in a background thread
         threading.Thread(target=show, daemon=True).start()
 
     def on_open_trump(icon, item):

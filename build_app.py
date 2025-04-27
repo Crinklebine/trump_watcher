@@ -69,6 +69,7 @@ def build_exe(pw_root: str) -> int:
         "--hidden-import", "win32com.propsys",
         "--add-data", f"{pw_root}{os.pathsep}ms-playwright/chromium_headless_shell/chrome-win",
         "--version-file", "version_info.txt",
+        "--add-data=VERSION;.",
     ]
 
     if not DEBUG_MODE:
