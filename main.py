@@ -1,4 +1,4 @@
-# main2.py - Trump Watcher
+# main.py - Trump Watcher
 # Monitors TruthSocial for @realDonaldTrump posts and shows desktop notifications
 
 # ----------------------------
@@ -16,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 
 # ----------------------------
-# pywin32 imports required
+# pywin32 imports required - use type: ignore[import] to prevent vscode from thinking imports are unused
 # ----------------------------
 import pythoncom  # type: ignore[import]
 from win32com.shell import shell  # type: ignore[import]
@@ -54,7 +54,6 @@ seen_hashes = set()  # store hashes of posts already notified
 # Global Variables
 # ----------------------------
 exit_flag = False               # Signals the background monitor loop (and tray icon) to stop and exit cleanly
-#about_icon_initialized = False  # Guard so we only load & set the About-box icon once per session
 
 # ----------------------------
 # Debug flag setting
@@ -65,6 +64,8 @@ DEBUG_MODE = "--debug" in sys.argv
 # ----------------------------
 # Utility functions
 # ----------------------------
+
+# Resource path management
 def resource_path(relative_path: str) -> str:
     # Resolve a resource path that works both in development and when bundled
     try:
@@ -104,8 +105,9 @@ if FROZEN:
     except Exception as e:
         print(f"[DEBUG] Failed to get frozen info: {e}")
 
+# Get the version from VERSION file
 def get_version():
-    """Read the VERSION file and return the app version."""
+    #Read the VERSION file and return the app version
     try:
         version_file = Path(resource_path("VERSION"))
         if version_file.exists():
@@ -116,19 +118,8 @@ def get_version():
         print(f"[DEBUG] Failed to load version: {e}")
         return "Unknown"
 
+# Create or recreate the Start-Menu shortcut so Windows uses our AUMID and icon
 def ensure_aumid_shortcut() -> None:
-    # Create or recreate the Start-Menu shortcut so Windows uses our AUMID and icon
-    """
-    try:
-        # Import pywin32 COM APIs for shortcut creation
-        import pythoncom  # type: ignore[import]
-        from win32com.shell import shell  # type: ignore[import]
-        from win32com.propsys import propsys, pscon  # type: ignore[import]
-    except ImportError as e:
-        # Problems importing pywin32 COM APIs; skip shortcut creation
-        print(f"[DEBUG] ensure_aumid_shortcut skipped: {e!r}")
-        return
-    """
 
     # Determine the Programs folder under the current user's Start Menu
     programs_folder = os.path.join(
@@ -220,6 +211,8 @@ def hash_post(text: str) -> str:
 # ----------------------------
 # Core functionality
 # ----------------------------
+
+# Extract the posts from target page
 def extract_posts_from_page(page) -> list:
     # Scrape the current page for new posts and return list of (raw_text, normalized_text, hash)
     new_posts = []
@@ -282,6 +275,7 @@ def extract_posts_from_page(page) -> list:
 
     return new_posts
 
+# Notify function - performs native Windows Toast style notifications
 def notify(post_text: str, normalized_text: str, label: str = "New Trump post") -> None:
     # Log to console
     print(f"[{datetime.now()}] Notify: {label}")
