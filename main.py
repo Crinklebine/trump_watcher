@@ -256,9 +256,6 @@ def notify(post_text: str, normalized_text: str, label: str = "New Trump post") 
     print(f"[{datetime.now()}] Notify: {label}")
 
     try:
-        # Import Windows toast API
-        #from winotify import Notification, audio
-
         # Resolve paths to the small ICO and your 256×256 PNG
         ico_path = resource_path("icon/trump_watch_icon.ico")
         hero_path = resource_path("icon/trump_watch_icon.png")
