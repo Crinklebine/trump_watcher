@@ -33,7 +33,7 @@ jobs:
       # Step 5: Run your custom build script to create the EXE with production
       - name: Build TrumpWatcher EXE
         run: |
-          python build_app.py --prod
+          python build_app.py
 
       # Step 6: Set VERSION environment valriable
       - name: Set VERSION environment variable
