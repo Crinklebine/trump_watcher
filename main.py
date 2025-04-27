@@ -405,6 +405,13 @@ def create_icon() -> None:
             win.title("About TrumpWatcher")
             win.resizable(False, False)
 
+            # Set custom Trump icon for About window
+            try:
+                icon_path = resource_path("icon/trump_watch_icon.png")
+                win.iconphoto(True, tk.PhotoImage(file=icon_path))
+            except Exception as e:
+                print(f"[DEBUG] Failed to set window icon: {e}")
+
             # Center the window on the screen
             w, h = 360, 180
             x = (win.winfo_screenwidth() - w) // 2
