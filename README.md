@@ -18,8 +18,15 @@ This application is open-source and released under the MIT License.
 - Sends native Windows desktop notifications
 - Runs quietly in the system tray
 - Auto-detects new posts without manual refresh
-- Fully self-contained (headless browser included)
+- Fully self-contained single EXE file
 - Right mouse click menu
+- Start Menu link installed automatically
+
+---
+
+## 💻 Screenshot
+
+![TrumpWatcher Notification Screenshot](assets/screenshot.png)
 
 ---
 
@@ -43,9 +50,21 @@ This is normal for new open-source projects. TrumpWatcher is open-source and you
 1. Download `TrumpWatcher.exe` from the [Releases Page](https://github.com/Crinklebine/trump_watcher/releases).
 2. Double-click to run.
 3. TrumpWatcher will appear in your system tray (near the clock).
-4. Right-click the tray icon for options like Open Truth Social, About, or Exit.
 
-✅ No installation process — just run the EXE.
+
+✅ No installation process — just Unzip run the EXE
+
+---
+## 🗑️ Unintsall
+
+1. Delete TrumpWatcher.EXE
+2. Delete Start Menu Item
+3. Win Key + R
+4. Paste %APPDATA%\Microsoft\Windows\Start Menu\Programs
+5. Delete TrumpWatcher Menu Item
+
+
+✅ No registry entries or configuration files.
 
 ---
 
@@ -61,12 +80,12 @@ You are free to use, modify, and distribute this software.
 
 If you want to build it yourself:
 
-- Python 3.11+
+- Python 3.9+
 - Install dependencies: `pip install -r requirements.txt`
-- Run locally: `python main.py`
-- Or build a Windows EXE using: `python build_app.py`
+- Build a Windows EXE using: `python build_app.py` find your EXE in /dist
+- `python main.py` currently unsupported due to bound playwright chromium-headless-shell
 
-GitHub Actions are configured to automatically build production EXEs.
+GitHub Actions are configured to automatically build production ZIP file with version number.
 
 ---
 
