@@ -16,6 +16,13 @@ from datetime import datetime
 from pathlib import Path
 
 # ----------------------------
+# pywin32 imports required
+# ----------------------------
+import pythoncom  # type: ignore[import]
+from win32com.shell import shell  # type: ignore[import]
+from win32com.propsys import propsys, pscon  # type: ignore[import]
+
+# ----------------------------
 # Third-party imports
 # ----------------------------
 from playwright.sync_api import sync_playwright
@@ -111,6 +118,7 @@ def get_version():
 
 def ensure_aumid_shortcut() -> None:
     # Create or recreate the Start-Menu shortcut so Windows uses our AUMID and icon
+    """
     try:
         # Import pywin32 COM APIs for shortcut creation
         import pythoncom  # type: ignore[import]
@@ -120,6 +128,7 @@ def ensure_aumid_shortcut() -> None:
         # Problems importing pywin32 COM APIs; skip shortcut creation
         print(f"[DEBUG] ensure_aumid_shortcut skipped: {e!r}")
         return
+    """
 
     # Determine the Programs folder under the current user's Start Menu
     programs_folder = os.path.join(
