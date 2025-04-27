@@ -21,8 +21,9 @@ from playwright.sync_api import sync_playwright
 from plyer import notification
 import pystray
 from PIL import Image, ImageDraw
-import webbrowser
+from winotify import Notification, audio
 import tkinter as tk
+import webbrowser
 
 # ----------------------------
 # App identity & shortcut config
@@ -256,7 +257,7 @@ def notify(post_text: str, normalized_text: str, label: str = "New Trump post") 
 
     try:
         # Import Windows toast API
-        from winotify import Notification, audio
+        #from winotify import Notification, audio
 
         # Resolve paths to the small ICO and your 256×256 PNG
         ico_path = resource_path("icon/trump_watch_icon.ico")
