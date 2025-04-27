@@ -21,8 +21,8 @@ from playwright.sync_api import sync_playwright
 from plyer import notification
 import pystray
 from PIL import Image, ImageDraw
-import tkinter as tk
 import webbrowser
+import tkinter as tk
 
 # ----------------------------
 # App identity & shortcut config
@@ -41,7 +41,12 @@ USER_AGENT = (
 )
 POLL_INTERVAL = 30  # seconds between page reloads
 seen_hashes = set()  # store hashes of posts already notified
-exit_flag = False    # signal to stop the monitor loop
+
+# ----------------------------
+# Global Variables
+# ----------------------------
+exit_flag = False               # Signals the background monitor loop (and tray icon) to stop and exit cleanly
+#about_icon_initialized = False  # Guard so we only load & set the About-box icon once per session
 
 # ----------------------------
 # Debug detection
@@ -49,14 +54,12 @@ exit_flag = False    # signal to stop the monitor loop
 
 # Determine if running as EXE (PyInstaller "frozen" mode)
 FROZEN = getattr(sys, 'frozen', False)
-
 # If running from EXE and "--debug" is NOT passed → production mode
 # Otherwise (Python script or EXE with --debug) → debug mode
 if FROZEN:
     DEBUG_MODE = "--debug" in sys.argv
 else:
     DEBUG_MODE = "--prod" not in sys.argv
-
 print(f"[INFO] Running in {'debug' if DEBUG_MODE else 'production'} mode.")
 
 # ----------------------------
@@ -394,64 +397,72 @@ def create_icon() -> None:
         icon.stop()
 
     def on_about(icon, item):
-        """Show an About dialog using Tkinter in a separate thread."""
-        def show():
-            import tkinter as tk
+        # Triggered when the About menu item is clicked
+        print("[DEBUG] About menu item clicked.")
+
+        #Show an About dialog in its own thread with a fresh Tk root.
+        def show_about():
+            # Running inside a new thread to open About dialog
+            print("[DEBUG] About dialog thread started.")
+
+            # Create a brand-new root for this dialog
             root = tk.Tk()
-            root.withdraw()
+            root.title("About TrumpWatcher")
+            root.resizable(False, False)
 
-            # Create About window
-            win = tk.Toplevel(root)
-            win.title("About TrumpWatcher")
-            win.resizable(False, False)
-
-            # Set custom Trump icon for About window
+            # Try setting our custom icon
             try:
-                icon_path = resource_path("icon/trump_watch_icon.png")
-                win.iconphoto(True, tk.PhotoImage(file=icon_path))
+                path = resource_path("icon/trump_watch_icon.png")
+                img  = tk.PhotoImage(file=path)
+                root.iconphoto(True, img)
+                root._icon_ref = img  # keep a reference alive
+                print("[DEBUG] About dialog icon loaded successfully.")
             except Exception as e:
                 print(f"[DEBUG] Failed to set window icon: {e}")
 
-            # Center the window on the screen
+            # Center the window
             w, h = 360, 180
-            x = (win.winfo_screenwidth() - w) // 2
-            y = (win.winfo_screenheight() - h) // 2
-            win.geometry(f"{w}x{h}+{x}+{y}")
+            x = (root.winfo_screenwidth()  - w) // 2
+            y = (root.winfo_screenheight() - h) // 2
+            root.geometry(f"{w}x{h}+{x}+{y}")
 
             # About text
             about_text = (
-                f"TrumpWatcher v{get_version()}\n\n"
+                f"TrumpWatcher v{get_version()}\n"
                 "Monitors TruthSocial for @realDonaldTrump posts.\n"
                 "Displays desktop notifications on new posts.\n\n"
                 "Built with:\n"
-                "Python, Playwright, Pystray, Pillow, Tkinter 🙏\n\n"
-                "© 2025 Crinklebine\n\n"
+                "Python, Playwright, Pystray, Tkinter 🙏\n"
+                "© 2025 Crinklebine"
             )
+            tk.Label(root, text=about_text, justify="center", padx=20, pady=10).pack()
 
-            tk.Label(
-                win,
-                text=about_text,
-                justify="center",
-                padx=20,
-                pady=10
-            ).pack()
+           # Close button
+            tk.Button(root, text="Close", command=root.destroy).pack(pady=10)
 
-            # Close button
-            tk.Button(win, text="Close", command=win.destroy).pack(pady=10)
-
+            # Enter Tk event loop for this About dialog only
+            print("[DEBUG] About dialog ready, entering mainloop.")
             root.mainloop()
+            print("[DEBUG] About dialog closed.")
 
-        # Launch the About window in a background thread
-        threading.Thread(target=show, daemon=True).start()
+        # Launch About in a daemon thread so it never blocks the tray
+        threading.Thread(target=show_about, daemon=True).start()
 
     def on_open_trump(icon, item):
-        # Open the TruthSocial page in the default browser
-        webbrowser.open(TRUTH_URL)
+        # Triggered when the Open Trump Page menu item is clicked
+        print("[DEBUG] Open Trump Page menu item clicked.")
+        try:
+            # Open the TruthSocial page in the default browser
+            webbrowser.open(TRUTH_URL)
+            print("[DEBUG] Browser launched successfully.")
+        except Exception as e:
+            print(f"[DEBUG] Failed to open browser: {e}")    
 
     # Load or draw tray icon
     try:
         icon_path = resource_path("icon/trump_watch_icon.png")
         image = Image.open(icon_path).resize((64, 64))
+        print("[DEBUG] Tray icon loaded.")
     except Exception as e:
         print(f"[DEBUG] Tray icon load failed: {e}")
         image = Image.new('RGB', (64, 64), color='white')
@@ -460,6 +471,7 @@ def create_icon() -> None:
 
     menu = pystray.Menu(
         pystray.MenuItem("Open Trump Page", on_open_trump),
+        pystray.Menu.SEPARATOR, 
         pystray.MenuItem("About", on_about),
         pystray.MenuItem("Exit", on_exit)
     )
