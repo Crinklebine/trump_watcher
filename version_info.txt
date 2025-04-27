@@ -18,12 +18,12 @@ VSVersionInfo(
         '040904b0',
         [StringStruct('CompanyName', 'Crinklebine'),
         StringStruct('FileDescription', 'TrumpWatcher - Truth Social Monitor'),
-        StringStruct('FileVersion', '1.0.0'),
+        StringStruct('FileVersion', '1.0.1'),
         StringStruct('InternalName', 'TrumpWatcher'),
         StringStruct('LegalCopyright', 'Copyright © 2025 Crinklebine'),
         StringStruct('OriginalFilename', 'TrumpWatcher.exe'),
         StringStruct('ProductName', 'TrumpWatcher'),
-        StringStruct('ProductVersion', '1.0.0')])
+        StringStruct('ProductVersion', '1.0.1')])
       ]
     ),
     VarFileInfo([VarStruct('Translation', [1033, 1200])])
