@@ -74,7 +74,7 @@ This is normal for new open-source projects. TrumpWatcher is open-source and you
 
 ## 🦠 Virus Total
 
-TrumpWatcher.exe (v1.0.1) --> SHA-256 38545BFCE012469F7F79AB0A35573FF0FB0A47271CB2D106473A2ED45ED3217C
+TrumpWatcher.exe (v1.0.1) --> SHA-256 38545BFCE012469F7F79AB0A35573FF0FB0A47271CB2D106473A2ED45ED3217C  
 Virus Total Link - https://www.virustotal.com/gui/file/38545bfce012469f7f79ab0a35573ff0fb0a47271cb2d106473a2ed45ed3217c
 
 ---
