@@ -15,6 +15,10 @@ import hashlib
 from datetime import datetime
 from pathlib import Path
 
+import win32api
+import win32con
+import win32gui
+
 # ----------------------------
 # pywin32 imports required - use type: ignore[import] to prevent vscode from thinking imports are unused
 # ----------------------------
@@ -25,6 +29,7 @@ from win32com.propsys import propsys, pscon  # type: ignore[import]
 # ----------------------------
 # Third-party imports
 # ----------------------------
+import psutil
 from playwright.sync_api import sync_playwright
 import pystray
 from PIL import Image, ImageDraw
@@ -60,6 +65,12 @@ exit_flag = False               # Signals the background monitor loop (and tray 
 # ----------------------------
 
 DEBUG_MODE = "--debug" in sys.argv
+
+# ----------------------------
+# Show the executable name
+# ----------------------------
+print(f"[DEBUG] sys.executable = {sys.executable}")
+print(f"[DEBUG] My EXE name = {os.path.basename(sys.executable)}")
 
 # ----------------------------
 # Utility functions
@@ -185,6 +196,70 @@ def set_app_id(app_id: str) -> None:
         print(f"[DEBUG] AppUserModelID set to: {app_id}")
     except Exception as e:
         print(f"[DEBUG] Failed to set AppUserModelID: {e}")
+
+# Define lockfile path (TEMP folder, safe and user-writable)
+LOCKFILE = os.path.join(os.getenv('TEMP'), 'trumpwatcher.lock')        
+
+# multiple instance checking
+def check_single_instance():
+    exe_name = os.path.basename(sys.executable).lower()
+    my_pid = os.getpid()
+
+    # Check if lockfile exists
+    if os.path.exists(LOCKFILE):
+        try:
+            with open(LOCKFILE, 'r') as f:
+                existing_pid = int(f.read().strip())
+
+            if psutil.pid_exists(existing_pid):
+                print(f"[DEBUG] Existing instance detected with PID {existing_pid}. Showing warning and exiting.")
+
+                # Create an invisible window to own the MessageBox (prevent taskbar clutter)
+                wndclass = win32gui.WNDCLASS()
+                wndclass.lpfnWndProc = lambda hwnd, msg, wparam, lparam: 0
+                wndclass.lpszClassName = "InvisibleTrumpWatcherWindow"
+                atom = win32gui.RegisterClass(wndclass)
+                hwnd = win32gui.CreateWindow(atom, "", 0, 0, 0, 0, 0, 0, 0, 0, None)
+
+                win32api.MessageBox(
+                    hwnd,
+                    "TrumpWatcher is already running.\n\nCheck your system tray or overflow area for the icon.",
+                    "TrumpWatcher Already Running",
+                    win32con.MB_ICONEXCLAMATION | win32con.MB_OK
+                )
+
+                win32gui.DestroyWindow(hwnd)
+                sys.exit(0)
+
+            else:
+                print(f"[DEBUG] Stale lockfile found (PID {existing_pid} not running). Removing stale lockfile.")
+                os.remove(LOCKFILE)
+
+        except Exception as e:
+            print(f"[DEBUG] Error reading lockfile ({e}). Removing lockfile.")
+            try:
+                os.remove(LOCKFILE)
+            except Exception as e2:
+                print(f"[DEBUG] Failed to remove lockfile: {e2}")
+
+    # No existing valid lockfile -> create a new one
+    try:
+        with open(LOCKFILE, 'w') as f:
+            f.write(str(my_pid))
+        print(f"[DEBUG] Lockfile created with PID {my_pid}.")
+    except Exception as e:
+        print(f"[DEBUG] Failed to create lockfile ({e}). Exiting.")
+        sys.exit(0)
+
+# lock file cleanup
+def cleanup_single_instance():
+    try:
+        if os.path.exists(LOCKFILE):
+            os.remove(LOCKFILE)
+            print("[DEBUG] Lockfile removed successfully.")
+    except Exception as e:
+        print(f"[DEBUG] Failed to remove lockfile: {e}")
+
 
 def normalize(text: str) -> str:
     # Lowercase, strip punctuation, remove duplicate lines for hashing
@@ -411,6 +486,12 @@ def create_icon() -> None:
         exit_flag = True
         icon.stop()
 
+        # Clean up the lockfile
+        cleanup_single_instance()
+
+        # Final shutdown log
+        print("[DEBUG] TrumpWatcher shutdown complete.")
+
     def on_about(icon, item):
         # Triggered when the About menu item is clicked
         print("[DEBUG] About menu item clicked.")
@@ -500,13 +581,16 @@ def create_icon() -> None:
 # Entry point
 # ----------------------------
 if __name__ == "__main__":
-    # 1) Create the Start-Menu shortcut (uses the global APP_ID)
+    # 1) Check for another instance  
+    check_single_instance()
+    
+    # 2) Create the Start-Menu shortcut (uses the global APP_ID)
     ensure_aumid_shortcut()
 
-    # 2) Register the AppUserModelID for this process
+    # 3) Register the AppUserModelID for this process
     set_app_id(APP_ID)
 
-    # 3) Start the tray icon & monitoring loop
+    # 4) Start the tray icon & monitoring loop
     create_icon()
 
 

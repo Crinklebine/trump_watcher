@@ -1,5 +1,6 @@
 pillow
 playwright
+psutil
 pyinstaller
 pystray
 pywin32
