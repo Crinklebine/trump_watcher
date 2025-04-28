@@ -15,6 +15,9 @@ dist/
 # Logs
 posts_log.txt
 
+# Local ToDo List
+todo_list.txt
+
 # System files
 .DS_Store
 Thumbs.db
