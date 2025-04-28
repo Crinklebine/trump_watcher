@@ -108,3 +108,6 @@ GitHub Actions are configured to automatically build production ZIP file with ve
 
 ---
 
+**🛡️ Disclaimer:**  
+This software is provided under the MIT License, without warranty of any kind. Use at your own risk.
+
