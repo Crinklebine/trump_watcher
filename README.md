@@ -60,15 +60,22 @@ This is normal for new open-source projects. TrumpWatcher is open-source and you
 ---
 ## 🗑️ Unintsall
 
-1. Delete TrumpWatcher.EXE
-2. Delete Start Menu Item
-3. Press Windows Key + R on your keyboard.
-4. Paste %APPDATA%\Microsoft\Windows\Start Menu\Programs
-5. Press Enter or Click OK
-6. Find TrumpWatcher Start Menu Item and delete manually
+1. Delete TrumpWatcher.exe
+2. Delete Start Menu Item:
+    1. Press Windows Key + R on your keyboard.
+    2. Paste %APPDATA%\Microsoft\Windows\Start Menu\Programs
+    3. Press Enter or Click OK
+    4. Find TrumpWatcher Start Menu Item and delete manually
 
 
 👾 No registry entries or configuration files. Only two files need deletion (TrumpWatcher.exe and TrumpWatcher.lnk).
+
+---
+
+## 🦠 Virus Total
+
+TrumpWatcher.exe (v1.0.1) --> SHA-256 38545BFCE012469F7F79AB0A35573FF0FB0A47271CB2D106473A2ED45ED3217C
+Virus Total Link - https://www.virustotal.com/gui/file/38545bfce012469f7f79ab0a35573ff0fb0a47271cb2d106473a2ed45ed3217c
 
 ---
 
