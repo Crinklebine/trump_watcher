@@ -49,7 +49,7 @@ This is normal for new open-source projects. TrumpWatcher is open-source and you
 ## ⚙️ Installation and Use
 
 1. Download `TrumpWatcher-v1.0.x.zip` from the [Releases Page](https://github.com/Crinklebine/trump_watcher/releases).
-2. Unzip and located TrumpWatcher.exe
+2. Unzip and locate TrumpWatcher.exe
 3. Copy to a convenient location on your computer e.g. C:\Apps\Trumpwatcher
 4. Double-click to `TrumpWatcher.exe` to run.
 5. TrumpWatcher will appear in your system tray (near the clock or overflow section). An initial notification will always occur after loading.
