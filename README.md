@@ -21,6 +21,7 @@ This application is open-source and released under the MIT License.
 - Fully self-contained single EXE file
 - Right mouse click menu
 - Start Menu link installed automatically
+- No Truth Social account required
 
 ---
 
@@ -45,26 +46,29 @@ This is normal for new open-source projects. TrumpWatcher is open-source and you
 
 ---
 
-## ⚙️ Installation
+## ⚙️ Installation and Use
 
-1. Download `TrumpWatcher.exe` from the [Releases Page](https://github.com/Crinklebine/trump_watcher/releases).
-2. Double-click to run.
-3. TrumpWatcher will appear in your system tray (near the clock).
+1. Download `TrumpWatcher-v1.0.x.zip` from the [Releases Page](https://github.com/Crinklebine/trump_watcher/releases).
+2. Unzip and located TrumpWatcher.exe
+3. Copy to a convenient location on your computer e.g. C:\Apps\Trumpwatcher
+4. Double-click to `TrumpWatcher.exe` to run.
+5. TrumpWatcher will appear in your system tray (near the clock or overflow section). An initial notification will always occur after loading.
 
 
-✅ No installation process — just Unzip run the EXE
+✅ No installation process — just Unzip, save the EXE to your favorite location and run the EXE
 
 ---
 ## 🗑️ Unintsall
 
 1. Delete TrumpWatcher.EXE
 2. Delete Start Menu Item
-3. Win Key + R
+3. Press Windows Key + R on your keyboard.
 4. Paste %APPDATA%\Microsoft\Windows\Start Menu\Programs
-5. Delete TrumpWatcher Menu Item
+5. Press Enter or Click OK
+6. Find TrumpWatcher Start Menu Item and delete manually
 
 
-✅ No registry entries or configuration files.
+👾 No registry entries or configuration files. Only two files need deletion (TrumpWatcher.exe and TrumpWatcher.lnk).
 
 ---
 
@@ -93,7 +97,7 @@ GitHub Actions are configured to automatically build production ZIP file with ve
 
 - [PyInstaller](https://www.pyinstaller.org/) — for building the standalone EXE
 - [Playwright](https://playwright.dev/) — for headless browser automation
-- [Winotify](https://github.com/kaustubhgupta/winotify) — for Windows notifications
+- [Winotify](https://pypi.org/project/winotify/) — for Windows notifications
 
 ---
 
