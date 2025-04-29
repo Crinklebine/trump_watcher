@@ -109,5 +109,5 @@ GitHub Actions are configured to automatically build production ZIP file with ve
 ---
 
 **🛡️ Disclaimer:**  
-This software is provided under the MIT License, without warranty of any kind. Use at your own risk.
-
+This software is provided under the MIT License, without warranty of any kind. Use at your own risk.  
+This project is an independent open-source tool and is not affiliated with, endorsed by, or associated with Truth Social, Donald J. Trump, or any related entities. All trademarks and platform names mentioned are the property of their respective owners. This software is provided for educational and informational purposes only.
