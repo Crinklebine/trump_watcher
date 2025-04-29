@@ -12,6 +12,7 @@ import threading
 import ctypes
 import re
 import hashlib
+import gc
 from datetime import datetime
 from pathlib import Path
 
@@ -56,9 +57,23 @@ POLL_INTERVAL = 30  # seconds between page reloads
 seen_hashes = set()  # store hashes of posts already notified
 
 # ----------------------------
+# Headless Browser Args and resource control
+# ----------------------------
+# Optional Chromium launch flags
+BROWSER_ARGS = [
+    "--disable-gpu",                # drop the GPU process
+    "--disable-extensions",         # drop extension helper
+    "--disable-dev-shm-usage",      # reduce shared-memory usage
+    "--renderer-process-limit=1"    # only one renderer (instead of 3)
+]
+
+BLOCKED_RESOURCE_TYPES = ["image", "font", "media"]
+
+# ----------------------------
 # Global Variables
 # ----------------------------
 exit_flag = False               # Signals the background monitor loop (and tray icon) to stop and exit cleanly
+browser_context = None          # global handle for the currently running browser context
 
 # ----------------------------
 # Debug flag setting
@@ -260,6 +275,54 @@ def cleanup_single_instance():
     except Exception as e:
         print(f"[DEBUG] Failed to remove lockfile: {e}")
 
+def perform_garbage_collection():
+    # Force a full Python GC pass.
+    # Call this after you tear down your browser context
+    # whenever you want to free up memory.
+    try:
+        print("[DEBUG] Running garbage collection…")
+        gc.collect()
+        print("[DEBUG] Garbage collection complete.")
+    except Exception as e:
+        print(f"[DEBUG] Garbage collection failed: {e}")
+
+
+def get_headless_memory_mb() -> float:
+    # Scan for all running headless_shell.exe processes and
+    # return their combined RSS memory usage in megabytes.
+    # Includes debug logs for each process and any access errors.
+
+    total_rss = 0
+    for proc in psutil.process_iter(['pid', 'name', 'memory_info']):
+        try:
+            name = proc.info.get('name') or ""
+            if 'headless_shell' in name.lower():
+                rss = proc.info['memory_info'].rss
+                total_rss += rss
+                print(f"[DEBUG] headless_shell.exe (PID {proc.pid}) RSS = {rss / (1024*1024):.1f} MB")
+        except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
+            pid = proc.info.get('pid', 'unknown')
+            print(f"[DEBUG] Could not inspect process PID {pid}: {e}")
+            continue
+
+    total_mb = total_rss / (1024 * 1024)
+    print(f"[DEBUG] Total headless_shell.exe memory: {total_mb:.1f} MB")
+    return total_mb
+
+def get_trumpwatcher_memory_mb() -> float:
+    # Return the RSS memory usage of the running TrumpWatcher.exe process in MB,
+    # with debug output.
+
+    try:
+        proc = psutil.Process(os.getpid())
+        rss  = proc.memory_info().rss
+        mb   = rss / (1024 * 1024)
+        print(f"[DEBUG] TrumpWatcher.exe (PID {proc.pid}) RSS = {mb:.1f} MB")
+        return mb
+    except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
+        print(f"[DEBUG] Could not inspect TrumpWatcher process: {e}")
+        return 0.0
+    
 
 def normalize(text: str) -> str:
     # Lowercase, strip punctuation, remove duplicate lines for hashing
@@ -350,6 +413,36 @@ def extract_posts_from_page(page) -> list:
 
     return new_posts
 
+def check_for_new_posts(page):
+    # Scrape the latest posts, dedupe by hash, and fire notifications.
+    # Uses extract_posts_from_page() and notify(), and the global seen_hashes.
+
+    try:
+        # page is already at TRUTH_URL on first poll;
+        # all reloads happen in the loop below
+        new_posts = extract_posts_from_page(page)
+        if not new_posts:
+            print("[DEBUG] No new posts found.")
+            return
+
+        for raw_text, normalized_text, h in new_posts:
+            print(f"[DEBUG] New post detected -> Hash: {h}")
+            seen_hashes.add(h)
+
+            # derive a label for the notification
+            if raw_text.startswith("[Video post]"):
+                label = "Video post"
+            elif raw_text.startswith("[Image post]"):
+                label = "Image post"
+            else:
+                label = "New Trump post"
+
+            # Fire your notification with the right label
+            notify(raw_text, normalized_text, label)
+
+    except Exception as e:
+        print(f"[DEBUG] Error in check_for_new_posts: {e}")
+
 # Notify function - performs native Windows Toast style notifications
 def notify(post_text: str, normalized_text: str, label: str = "New Trump post") -> None:
     # Log to console
@@ -394,85 +487,139 @@ def notify(post_text: str, normalized_text: str, label: str = "New Trump post") 
             log.write("Normalized for Hashing:\n" + normalized_text + "\n")
             log.write("-" * 40 + "\n")
 
-def monitor_loop() -> None:
-    # Main loop: do a cold start once, then poll every POLL_INTERVAL seconds
+def start_browser():
+    global browser_context
+    print("[DEBUG] Launching headless browser.")
+    p = sync_playwright().start()
+    browser = p.chromium.launch(
+        executable_path=HEADLESS_PATH,  
+        headless=True,
+        args=BROWSER_ARGS
+    )
+    browser_context = browser.new_context(
+        extra_http_headers={"user-agent": USER_AGENT}
+    )
+    page = browser_context.new_page()
+
+    # block to abort unwanted resources
+    def _block(route, request):
+        if request.resource_type in BLOCKED_RESOURCE_TYPES:
+            route.abort()
+        else:
+            route.continue_()
+    page.route("**/*", _block)
+
+    page.goto(TRUTH_URL)
+    page.wait_for_load_state("networkidle")
+    page._playwright = p  
+    page._browser   = browser  
+    print("[DEBUG] Browser launched successfully.")
+    return browser_context, page
+
+
+def close_browser(context):
+    try:
+        print("[DEBUG] Closing browser context.")
+        # grab handles from the passed‐in context
+        pages = context.pages or []
+        page  = pages[0] if pages else None
+        browser = getattr(page, "_browser", None)
+        p       = getattr(page, "_playwright", None)
+
+        # close the context itself
+        context.close()
+
+        # then tear down browser + playwright
+        if browser:
+            browser.close()
+        if p:
+            p.stop()
+
+        print("[DEBUG] Browser context closed successfully.")
+    except Exception as e:
+        print(f"[DEBUG] Error during browser cleanup: {e}")
+
+
+def monitor_loop():
     global exit_flag
-    cold_start = True
 
-    # For now, always use the hardcoded headless path
-    browser_path = HEADLESS_PATH
-    print(f"[DEBUG] Using browser at: {browser_path}")
-    with sync_playwright() as p:
-        browser = p.chromium.launch(
-            headless=True,
-            executable_path=browser_path
-        )
-        context = browser.new_context(
-            user_agent=USER_AGENT,
-            viewport={"width": 1280, "height": 800}
-        )
-        page = context.new_page()
+    POLL_INTERVAL    = 30        # seconds between polls
+    RESTART_INTERVAL = 2 * 60    # seconds (2 minutes)
 
-        while not exit_flag:
-            if cold_start:
-                # initial wait for full page render
-                print(f"[{datetime.now()}] Cold start: waiting 5s for render...")
-                time.sleep(5)
-                print(f"[{datetime.now()}] Initial page load")
+    # 1) Launch browser and mark that we haven’t polled yet
+    last_restart_time = datetime.now()
+    context, page     = start_browser()
+    first_poll        = True
 
-                # on cold start, notify only the very latest post
-                page.goto(TRUTH_URL, timeout=60000)
-                page.wait_for_selector('div.flex.flex-col.space-y-4', timeout=30000)
-                page.wait_for_timeout(2000)
-                new_posts = extract_posts_from_page(page)
+    print(f"[DEBUG] Monitor loop started. Polling every {POLL_INTERVAL}s. Restart every {RESTART_INTERVAL//60}m.")
 
-                if new_posts:
-                    # notify just the newest item
-                    raw, norm, h = new_posts[0]
+    while not exit_flag:
+        try:
+            now     = datetime.now()
+            elapsed = (now - last_restart_time).total_seconds()
+
+            # 2) Restart if it’s been too long (don’t reset first_poll)
+            if elapsed >= RESTART_INTERVAL:
+                print(f"[DEBUG] Restarting browser after {int(elapsed)}s …")
+                close_browser(context)
+                perform_garbage_collection()   # ← comment this out to disable GC on every browser restart
+                context, page = start_browser()
+                last_restart_time = datetime.now()
+                elapsed = 0  # reset elapsed since restart
+
+            # 3) Start poll cycle
+            print("[DEBUG] Polling for posts…")
+            page.reload(wait_until="networkidle")
+
+            if first_poll:
+                posts = extract_posts_from_page(page)
+                if posts:
+                    # Notify the very latest post
+                    raw, norm, h = posts[0]
                     seen_hashes.add(h)
-                    label = "New Trump post"
-                    if "[Video post]" in norm:
-                        label = "New Trump Video Post"
-                    elif "[Image post]" in norm:
-                        label = "New Trump Image Post"
-                    notify(raw, norm, label=label)
+                    notify(raw, norm, "Initial Trump post")
+                    print(f"[DEBUG] Initial post notified -> Hash: {h}")
 
-                    # mark the rest as seen so they never re-notify
-                    for _, _, h2 in new_posts[1:]:
-                        seen_hashes.add(h2)
+                    # Mark the rest as “seen”
+                    count_existing = len(posts) - 1
+                    if count_existing:
+                        print(f"[DEBUG] Marked {count_existing} existing post{'s' if count_existing>1 else ''} as seen.")
+                        for _, _, later_h in posts[1:]:
+                            seen_hashes.add(later_h)
+                    else:
+                        print("[DEBUG] No other existing posts to mark.")
                 else:
-                    print(f"[{datetime.now()}] No new posts found.")
-
-                cold_start = False
+                    print("[DEBUG] No posts found on initial poll.")
+                first_poll = False
 
             else:
-                # regular polling: notify on *any* new post
-                print(f"[{datetime.now()}] Polling: reloading page")
-                try:
-                    page.goto(TRUTH_URL, timeout=60000)
-                    page.wait_for_selector('div.flex.flex-col.space-y-4', timeout=30000)
-                    page.wait_for_timeout(2000)
-                    new_posts = extract_posts_from_page(page)
+                # Normal polling: prints “No new posts found.” or new-post info
+                check_for_new_posts(page)
 
-                    if not new_posts:
-                        print(f"[{datetime.now()}] No new posts found.")
+            # 4) Timing debug after post processing
+            print(f"[DEBUG] Time to next poll: {POLL_INTERVAL}s")
+            remaining = max(int(RESTART_INTERVAL - elapsed), 0)
+            print(f"[DEBUG] Time to next browser restart: {remaining}s")
 
-                    for raw, norm, h in new_posts:
-                        if h not in seen_hashes:
-                            seen_hashes.add(h)
-                            label = "New Trump post"
-                            if "[Video post]" in norm:
-                                label = "New Trump Video Post"
-                            elif "[Image post]" in norm:
-                                label = "New Trump Image Post"
-                            notify(raw, norm, label=label)
+            # 5) Memory debug
+            mem = get_headless_memory_mb()
+            print(f"[DEBUG] headless_shell.exe memory usage: {mem:.1f} MB")
 
-                except Exception as e:
-                    print(f"[{datetime.now()}] Error during monitor loop: {e}")
+            # 6) Self‐process memory debug
+            tw_mem = get_trumpwatcher_memory_mb()
+            print(f"[DEBUG] TrumpWatcher.exe memory usage: {tw_mem:.1f} MB")
 
-            time.sleep(POLL_INTERVAL)
+        except Exception as e:
+            print(f"[DEBUG] Error during polling: {e}")
 
-        browser.close()
+        # 5) Sleep in 1-second increments
+        for _ in range(POLL_INTERVAL):
+            if exit_flag:
+                break
+            time.sleep(1)
+
+    print("[DEBUG] Monitor loop exiting. Cleaning up browser.")
+    close_browser(context)
 
 # ----------------------------
 # System tray icon setup
