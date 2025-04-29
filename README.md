@@ -79,6 +79,14 @@ Virus Total Link - https://www.virustotal.com/gui/file/38545bfce012469f7f79ab0a3
 
 ---
 
+##  🧠 Memory Use
+
+TrumpWatcher uses a full headless Chromium browser via Playwright to access content, which results in higher memory usage (~500 MB typical). This ensures compatibility with Truth Social’s dynamic content and media rendering. A future version will transition to using Truth Social’s backend API directly, eliminating the browser entirely and reducing memory usage to under ~100 MB.
+
+Note: On systems with less than 16 GB of RAM, the app may run but could cause slight system slowdown during active monitoring periods.
+
+---
+
 ## 🔒 License
 
 This project is licensed under the [MIT License](LICENSE).
