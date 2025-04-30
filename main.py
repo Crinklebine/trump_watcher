@@ -544,7 +544,7 @@ def monitor_loop():
     global exit_flag
 
     POLL_INTERVAL    = 30        # seconds between polls
-    RESTART_INTERVAL = 2 * 60    # seconds (2 minutes)
+    RESTART_INTERVAL = 10 * 60    # seconds (10 minutes)
 
     # 1) Launch browser and mark that we haven’t polled yet
     last_restart_time = datetime.now()
@@ -574,11 +574,11 @@ def monitor_loop():
             if first_poll:
                 posts = extract_posts_from_page(page)
                 if posts:
-                    # Notify the very latest post
+                    # Notify the most recent post
                     raw, norm, h = posts[0]
                     seen_hashes.add(h)
-                    notify(raw, norm, "Initial Trump post")
-                    print(f"[DEBUG] Initial post notified -> Hash: {h}")
+                    notify(raw, norm, "Most recent Trump post")
+                    print(f"[DEBUG] Most recent post notified -> Hash: {h}")
 
                     # Mark the rest as “seen”
                     count_existing = len(posts) - 1
