@@ -76,6 +76,13 @@ exit_flag = False               # Signals the background monitor loop (and tray 
 browser_context = None          # global handle for the currently running browser context
 
 # ----------------------------
+# Tracking run time and peak memory usage
+# ----------------------------
+RUN_START = datetime.now()
+MAX_HEADLESS_MEM = 0.0
+MAX_TRUMPWATCHER_MEM = 0.0
+
+# ----------------------------
 # Debug flag setting
 # ----------------------------
 
@@ -291,38 +298,36 @@ def get_headless_memory_mb() -> float:
     # Scan for all running headless_shell.exe processes and
     # return their combined RSS memory usage in megabytes.
     # Includes debug logs for each process and any access errors.
-
     total_rss = 0
-    for proc in psutil.process_iter(['pid', 'name', 'memory_info']):
+    for proc in psutil.process_iter(['name', 'memory_info']):
         try:
             name = proc.info.get('name') or ""
             if 'headless_shell' in name.lower():
-                rss = proc.info['memory_info'].rss
-                total_rss += rss
-                print(f"[DEBUG] headless_shell.exe (PID {proc.pid}) RSS = {rss / (1024*1024):.1f} MB")
-        except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
-            pid = proc.info.get('pid', 'unknown')
-            print(f"[DEBUG] Could not inspect process PID {pid}: {e}")
+                total_rss += proc.info['memory_info'].rss
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
             continue
+    return total_rss / (1024 * 1024)
 
-    total_mb = total_rss / (1024 * 1024)
-    print(f"[DEBUG] Total headless_shell.exe memory: {total_mb:.1f} MB")
-    return total_mb
 
 def get_trumpwatcher_memory_mb() -> float:
     # Return the RSS memory usage of the running TrumpWatcher.exe process in MB,
     # with debug output.
-
     try:
         proc = psutil.Process(os.getpid())
-        rss  = proc.memory_info().rss
-        mb   = rss / (1024 * 1024)
-        print(f"[DEBUG] TrumpWatcher.exe (PID {proc.pid}) RSS = {mb:.1f} MB")
-        return mb
-    except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
-        print(f"[DEBUG] Could not inspect TrumpWatcher process: {e}")
+        return proc.memory_info().rss / (1024 * 1024)
+    except (psutil.NoSuchProcess, psutil.AccessDenied):
         return 0.0
-    
+
+def get_run_time_minutes() -> float:
+    #Returns the total run time in minutes since startup.
+    return (datetime.now() - RUN_START).total_seconds() / 60
+
+def report_summary():
+    # Print summary of peak memory usage and total run time.
+    print(f"[DEBUG] Peak headless_shell.exe memory: {MAX_HEADLESS_MEM:.1f} MB")
+    print(f"[DEBUG] Peak TrumpWatcher.exe memory: {MAX_TRUMPWATCHER_MEM:.1f} MB")
+    runtime = get_run_time_minutes()
+    print(f"[DEBUG] Total run time: {runtime:.1f} minutes")
 
 def normalize(text: str) -> str:
     # Lowercase, strip punctuation, remove duplicate lines for hashing
@@ -558,7 +563,7 @@ def monitor_loop():
             now     = datetime.now()
             elapsed = (now - last_restart_time).total_seconds()
 
-            # 2) Restart if it’s been too long (don’t reset first_poll)
+            # Restart if it’s been too long (don’t reset first_poll)
             if elapsed >= RESTART_INTERVAL:
                 print(f"[DEBUG] Restarting browser after {int(elapsed)}s …")
                 close_browser(context)
@@ -567,7 +572,7 @@ def monitor_loop():
                 last_restart_time = datetime.now()
                 elapsed = 0  # reset elapsed since restart
 
-            # 3) Start poll cycle
+            # Start poll cycle
             print("[DEBUG] Polling for posts…")
             page.reload(wait_until="networkidle")
 
@@ -596,28 +601,38 @@ def monitor_loop():
                 # Normal polling: prints “No new posts found.” or new-post info
                 check_for_new_posts(page)
 
-            # 4) Timing debug after post processing
+            # Timing debug after post processing
             print(f"[DEBUG] Time to next poll: {POLL_INTERVAL}s")
             remaining = max(int(RESTART_INTERVAL - elapsed), 0)
             print(f"[DEBUG] Time to next browser restart: {remaining}s")
 
-            # 5) Memory debug
+            # Memory debug
             mem = get_headless_memory_mb()
-            print(f"[DEBUG] headless_shell.exe memory usage: {mem:.1f} MB")
+            print(f"[DEBUG] Total headless_shell.exe memory usage: {mem:.1f} MB")
 
-            # 6) Self‐process memory debug
+            # Self‐process memory debug
             tw_mem = get_trumpwatcher_memory_mb()
-            print(f"[DEBUG] TrumpWatcher.exe memory usage: {tw_mem:.1f} MB")
+            print(f"[DEBUG] Total TrumpWatcher.exe memory usage: {tw_mem:.1f} MB")
+
+            # Update peak memory usage global variables
+            hs_mem = get_headless_memory_mb()
+            tw_mem = get_trumpwatcher_memory_mb()
+            global MAX_HEADLESS_MEM, MAX_TRUMPWATCHER_MEM
+            if hs_mem > MAX_HEADLESS_MEM:
+                MAX_HEADLESS_MEM = hs_mem
+            if tw_mem > MAX_TRUMPWATCHER_MEM:
+                MAX_TRUMPWATCHER_MEM = tw_mem            
 
         except Exception as e:
             print(f"[DEBUG] Error during polling: {e}")
 
-        # 5) Sleep in 1-second increments
+        # Sleep in 1-second increments
         for _ in range(POLL_INTERVAL):
             if exit_flag:
                 break
             time.sleep(1)
-
+    
+    # Shutdown cleanup
     print("[DEBUG] Monitor loop exiting. Cleaning up browser.")
     close_browser(context)
 
@@ -632,6 +647,9 @@ def create_icon() -> None:
         global exit_flag
         exit_flag = True
         icon.stop()
+
+        # Final summary report
+        report_summary()    
 
         # Clean up the lockfile
         cleanup_single_instance()
