@@ -51,7 +51,7 @@ ICON_REL_PATH = "icon/trump_watch_icon.ico"  # relative path to your .ico
 TRUTH_URL = "https://truthsocial.com/@realDonaldTrump"
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+    "(KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36 Edg/135.0.0.0"
 )
 POLL_INTERVAL = 30  # seconds between page reloads
 seen_hashes = set()  # store hashes of posts already notified
