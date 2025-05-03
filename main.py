@@ -53,7 +53,8 @@ USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36 Edg/135.0.0.0"
 )
-POLL_INTERVAL = 60  # seconds between page reloads
+POLL_INTERVAL    = 30        # seconds between polls
+RESTART_INTERVAL = 10 * 60    # seconds (10 minutes)
 seen_hashes = set()  # store hashes of posts already notified
 
 # ----------------------------
@@ -360,7 +361,17 @@ def extract_posts_from_page(page) -> list:
     # Scrape the current page for new posts and return list of (raw_text, normalized_text, hash)
     new_posts = []
     # All post containers share these CSS classes
-    post_blocks = page.query_selector_all('div.flex.flex-col.space-y-4')
+    all_blocks = page.query_selector_all('div.flex.flex-col.space-y-4')
+
+    # 1) Filter out any “Pinned” blocks so we read the true latest post
+    post_blocks = []
+    for block in all_blocks:
+        # look for a span containing the word “Pinned”
+        spans = block.query_selector_all("span")
+        if any("Pinned" in span.inner_text() for span in spans):
+            print("[DEBUG] Skipping pinned post")
+            continue
+        post_blocks.append(block)
 
     for block in post_blocks:
         # 1) Try to collect textual content
@@ -547,9 +558,6 @@ def close_browser(context):
 
 def monitor_loop():
     global exit_flag
-
-    POLL_INTERVAL    = 30        # seconds between polls
-    RESTART_INTERVAL = 10 * 60    # seconds (10 minutes)
 
     # 1) Launch browser and mark that we haven’t polled yet
     last_restart_time = datetime.now()
