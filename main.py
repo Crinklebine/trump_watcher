@@ -352,82 +352,129 @@ def hash_post(text: str) -> str:
     # Compute SHA-256 hash of normalized text
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
+def seed_seen_hashes(page):
+    """
+    On the very first poll, mark everything already in the feed as seen,
+    but notify once on the most‐recent post.
+    """
+    posts = extract_posts_from_page(page)
+    if not posts:
+        print("[DEBUG] No posts found on initial poll.")
+        return
+
+    # Notify on the very latest post only
+    raw, norm, h = posts[0]
+    seen_hashes.add(h)
+    notify(raw, norm, "Most recent Trump post")
+    print(f"[DEBUG] Most recent post notified → Hash: {h}")
+
+    # Mark the rest as seen so we don’t re-notify them
+    for _, _, later_h in posts[1:]:
+        seen_hashes.add(later_h)
+    print(f"[DEBUG] Seeded seen_hashes with {len(posts)} posts.")
+
+
 # ----------------------------
 # Core functionality
 # ----------------------------
 
-# Extract the posts from target page
+# ----------------------------
+# Post extraction
+# ----------------------------
 def extract_posts_from_page(page) -> list:
-    # Scrape the current page for new posts and return list of (raw_text, normalized_text, hash)
+    """
+    Scrape TruthSocial for @realDonaldTrump.
+    - Skips any block whose HTML contains "Pinned Truth".
+    - On the very first call (seen_hashes is empty), returns exactly one post.
+    - Thereafter, returns every post not yet in seen_hashes.
+    """
     new_posts = []
-    # All post containers share these CSS classes
-    all_blocks = page.query_selector_all('div.flex.flex-col.space-y-4')
+    initial_run = len(seen_hashes) == 0
 
-    # 1) Filter out any “Pinned” blocks so we read the true latest post
+    # 1) Grab every feed item
+    all_blocks = page.query_selector_all("div.status__wrapper")
+    print(f"[DEBUG] Found {len(all_blocks)} status__wrapper blocks before filtering")
+
+    # 2) Drop the pinned post
     post_blocks = []
-    for block in all_blocks:
-        # look for a span containing the word “Pinned”
-        spans = block.query_selector_all("span")
-        if any("Pinned" in span.inner_text() for span in spans):
-            print("[DEBUG] Skipping pinned post")
+    for idx, block in enumerate(all_blocks):
+        html = block.inner_html()
+        if "Pinned Truth" in html:
+            print("[DEBUG] Skipping pinned post (html contains “Pinned Truth”)")
             continue
+        # (optional) log which author line we see
+        first_line = block.inner_text().strip().splitlines()[0]
+        print(f"[DEBUG] Block {idx} first line (author): {first_line!r}")
         post_blocks.append(block)
 
+    # 3) Extract & dedupe
     for block in post_blocks:
-        # 1) Try to collect textual content
-        text_parts = []
+        raw_text = None
+
+        # a) text
+        parts = []
         for tag in ["p", "span", "a", "h1", "h2", "h3", "blockquote"]:
             for el in block.query_selector_all(tag):
-                txt = el.inner_text().strip()
-                if txt and len(txt) > 10:
-                    text_parts.append(txt)
+                t = el.inner_text().strip()
+                if t and len(t) > 10:
+                    parts.append(t)
+        if parts:
+            raw_text = "\n".join(parts)
 
-        if text_parts:
-            # Join all collected text lines
-            raw_text = "\n".join(text_parts)
-
-        else:
-            # 2) Fallback: look for a <video> element
-            video_el = block.query_selector("video")
-            if video_el:
-                source_el = video_el.query_selector("source")
-                if not source_el:
-                    # No <source> inside <video> → skip this block
-                    continue
-                src = source_el.get_attribute("src") or ""
-                src = src.split("?")[0]
+        # b) video fallback
+        if raw_text is None:
+            vid = block.query_selector("video")
+            if vid:
+                src = (vid.query_selector("source") \
+                        .get_attribute("src") or "").split("?")[0]
                 raw_text = f"[Video post] {src}"
 
-            else:
-                # 3) Fallback again: look for an <img> element
-                img_el = block.query_selector("img")
-                if not img_el:
-                    # No image either → nothing to notify
-                    continue
-                src = img_el.get_attribute("src") or ""
-                src = src.split("?")[0]
+        # c) image fallback
+        if raw_text is None:
+            img = block.query_selector("img")
+            if img:
+                src = (img.get_attribute("src") or "").split("?")[0]
                 raw_text = f"[Image post] {src}"
 
-        # 4) Skip boilerplate or irrelevant posts
-        blacklist = [
-            "New to Truth?", "Join Truth Social", "Create Account",
-            "Truth Social uses cookies", "session cookies",
-            "automated attacks", "Learn more"
-        ]
-        if any(bad in raw_text for bad in blacklist):
+        if raw_text is None:
+            print("[DEBUG] No content found in block—skipping")
             continue
 
-        # 5) Skip very short text posts (unless multimedia)
+        # 4) boilerplate filter
+        for bad in ("New to Truth?", "Join Truth Social", "Create Account",
+                    "Truth Social uses cookies", "session cookies",
+                    "automated attacks", "Learn more"):
+            if bad in raw_text:
+                print(f"[DEBUG] Blacklisted content ({bad!r})—skipping")
+                raw_text = None
+                break
+        if raw_text is None:
+            continue
+
+        # 5) skip tiny text-only posts
         if len(raw_text.split()) < 3 and not raw_text.startswith(("[Video post]", "[Image post]")):
+            print("[DEBUG] Very short text post—skipping")
             continue
 
-        # 6) Normalize and hash to dedupe
+        # 6) normalize, hash, dedupe
         normalized = normalize(raw_text)
         h = hash_post(normalized)
-        if h not in seen_hashes:
-            new_posts.append((raw_text, normalized, h))
+        if h in seen_hashes:
+            print(f"[DEBUG] Duplicate post (hash={h})—skipping")
+            continue
+
+        # 7) record & return
+        seen_hashes.add(h)
+        new_posts.append((raw_text, normalized, h))
+        print(f"[DEBUG] Queued new post (hash={h})")
+
+        # 8) on the _first_ run, stop after one
+        if initial_run:
+            break
 
     return new_posts
+
+
 
 def check_for_new_posts(page):
     # Scrape the latest posts, dedupe by hash, and fire notifications.
@@ -503,32 +550,51 @@ def notify(post_text: str, normalized_text: str, label: str = "New Trump post") 
             log.write("Normalized for Hashing:\n" + normalized_text + "\n")
             log.write("-" * 40 + "\n")
 
+
+# ----------------------------
+# Browser launch + preload
+# ----------------------------
 def start_browser():
+    """
+    Launch headless Chromium, navigate to Truth Social, block images/fonts/media,
+    then scroll until at least 2 posts are in the DOM.
+    """
     global browser_context
-    print("[DEBUG] Launching headless browser.")
+    print("[DEBUG] Launching headless browser…")
     p = sync_playwright().start()
     browser = p.chromium.launch(
-        executable_path=HEADLESS_PATH,  
+        executable_path=HEADLESS_PATH,
         headless=True,
-        args=BROWSER_ARGS
+        args=BROWSER_ARGS,
     )
     browser_context = browser.new_context(
         extra_http_headers={"user-agent": USER_AGENT}
     )
     page = browser_context.new_page()
 
-    # block to abort unwanted resources
-    def _block(route, request):
-        if request.resource_type in BLOCKED_RESOURCE_TYPES:
-            route.abort()
-        else:
-            route.continue_()
+    # block images/fonts/media
+    def _block(route, req):
+        if req.resource_type in ("image", "font", "media"):
+            return route.abort()
+        return route.continue_()
     page.route("**/*", _block)
 
-    page.goto(TRUTH_URL)
-    page.wait_for_load_state("networkidle")
-    page._playwright = p  
-    page._browser   = browser  
+    # go to the feed
+    page.goto(TRUTH_URL, wait_until="networkidle")
+
+    # scroll *all the way* down until we see 2 posts
+    for i in range(5):
+        blocks = page.query_selector_all("div.status__wrapper")
+        print(f"[DEBUG] after scroll #{i+1}, found {len(blocks)} wrappers")
+        if len(blocks) >= 2:
+            break
+        page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+        page.wait_for_load_state("networkidle")
+        time.sleep(1)
+
+    # hang onto these for restarts
+    page._playwright = p
+    page._browser   = browser
     print("[DEBUG] Browser launched successfully.")
     return browser_context, page
 
@@ -556,93 +622,60 @@ def close_browser(context):
         print(f"[DEBUG] Error during browser cleanup: {e}")
 
 
+# ----------------------------
+# Poll + restart loop
+# ----------------------------
 def monitor_loop():
     global exit_flag
 
-    # 1) Launch browser and mark that we haven’t polled yet
-    last_restart_time = datetime.now()
-    context, page     = start_browser()
-    first_poll        = True
+    last_restart = time.time()
+    context, page = start_browser()
+    first_poll   = True
 
-    print(f"[DEBUG] Monitor loop started. Polling every {POLL_INTERVAL}s. Restart every {RESTART_INTERVAL//60}m.")
+    print(f"[DEBUG] Monitor loop started. Polling every {POLL_INTERVAL}s, restarting every {RESTART_INTERVAL}s.")
 
     while not exit_flag:
         try:
-            now     = datetime.now()
-            elapsed = (now - last_restart_time).total_seconds()
-
-            # Restart if it’s been too long (don’t reset first_poll)
-            if elapsed >= RESTART_INTERVAL:
-                print(f"[DEBUG] Restarting browser after {int(elapsed)}s …")
+            now = time.time()
+            if now - last_restart >= RESTART_INTERVAL:
+                print("[DEBUG] Restart interval hit — tearing down and relaunching browser")
                 close_browser(context)
-                perform_garbage_collection()   # ← comment this out to disable GC on every browser restart
                 context, page = start_browser()
-                last_restart_time = datetime.now()
-                elapsed = 0  # reset elapsed since restart
+                last_restart = time.time()
 
-            # Start poll cycle
             print("[DEBUG] Polling for posts…")
             page.reload(wait_until="networkidle")
 
+            # again, force-load more posts
+            for i in range(3):
+                blocks = page.query_selector_all("div.status__wrapper")
+                print(f"[DEBUG] reload-scroll #{i+1}, found {len(blocks)} wrappers")
+                if len(blocks) >= 2:
+                    break
+                page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                page.wait_for_load_state("networkidle")
+                time.sleep(1)
+
             if first_poll:
-                posts = extract_posts_from_page(page)
-                if posts:
-                    # Notify the most recent post
-                    raw, norm, h = posts[0]
-                    seen_hashes.add(h)
-                    notify(raw, norm, "Most recent Trump post")
-                    print(f"[DEBUG] Most recent post notified -> Hash: {h}")
-
-                    # Mark the rest as “seen”
-                    count_existing = len(posts) - 1
-                    if count_existing:
-                        print(f"[DEBUG] Marked {count_existing} existing post{'s' if count_existing>1 else ''} as seen.")
-                        for _, _, later_h in posts[1:]:
-                            seen_hashes.add(later_h)
-                    else:
-                        print("[DEBUG] No other existing posts to mark.")
-                else:
-                    print("[DEBUG] No posts found on initial poll.")
+                seed_seen_hashes(page)
                 first_poll = False
-
             else:
-                # Normal polling: prints “No new posts found.” or new-post info
                 check_for_new_posts(page)
 
-            # Timing debug after post processing
-            print(f"[DEBUG] Time to next poll: {POLL_INTERVAL}s")
-            remaining = max(int(RESTART_INTERVAL - elapsed), 0)
-            print(f"[DEBUG] Time to next browser restart: {remaining}s")
-
-            # Memory debug
-            mem = get_headless_memory_mb()
-            print(f"[DEBUG] Total headless_shell.exe memory usage: {mem:.1f} MB")
-
-            # Self‐process memory debug
-            tw_mem = get_trumpwatcher_memory_mb()
-            print(f"[DEBUG] Total TrumpWatcher.exe memory usage: {tw_mem:.1f} MB")
-
-            # Update peak memory usage global variables
-            hs_mem = get_headless_memory_mb()
-            tw_mem = get_trumpwatcher_memory_mb()
-            global MAX_HEADLESS_MEM, MAX_TRUMPWATCHER_MEM
-            if hs_mem > MAX_HEADLESS_MEM:
-                MAX_HEADLESS_MEM = hs_mem
-            if tw_mem > MAX_TRUMPWATCHER_MEM:
-                MAX_TRUMPWATCHER_MEM = tw_mem            
-
+            print(f"[DEBUG] Sleeping {POLL_INTERVAL}s until next poll")
         except Exception as e:
-            print(f"[DEBUG] Error during polling: {e}")
+            print(f"[DEBUG] Error in monitor loop: {e}")
 
-        # Sleep in 1-second increments
+        # responsive sleep
         for _ in range(POLL_INTERVAL):
             if exit_flag:
                 break
             time.sleep(1)
-    
-    # Shutdown cleanup
-    print("[DEBUG] Monitor loop exiting. Cleaning up browser.")
+
+    print("[DEBUG] Exiting monitor loop, cleaning up…")
     close_browser(context)
+
+
 
 # ----------------------------
 # System tray icon setup
